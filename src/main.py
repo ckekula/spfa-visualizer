@@ -27,7 +27,14 @@ maze[6][9] = 1
 start = (0, 0)  # (row, col)
 end   = (9, 9)
 
+
+
 def main():
+    def manhattan_heuristic(node_id):
+        r, c = viz.coord_from_id(node_id)
+        er, ec = end
+        return abs(r - er) + abs(c - ec)
+
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("SPFA Visualizer")
@@ -69,8 +76,11 @@ def main():
     # UI elements (simple buttons)
     find_button = pygame.Rect(600, 50, 150, 40)
     algo_buttons = [
-        (pygame.Rect(600, 110, 150, 30), "Dijkstra"),
-    ]
+    (pygame.Rect(600, 110, 150, 30), "Dijkstra"),
+    (pygame.Rect(600, 150, 150, 30), "A*"),
+    (pygame.Rect(600, 190, 150, 30), "Bellman-Ford"),
+]
+
 
     def compute_shortest_path(algo_name):
         nonlocal shortest_path
@@ -78,6 +88,11 @@ def main():
         try:
             if algo_name == "Dijkstra":
                 path_ids = SPFA_Algorithms.dijkstras(n=n, edges=edges, src=src_id, dst=dst_id)
+            elif algo_name == "A*":
+                path_ids = SPFA_Algorithms.a_star( n=n, edges=edges, src=src_id, dst=dst_id,heuristic=manhattan_heuristic)
+            
+            elif algo_name == "Bellman-Ford":
+                path_ids = SPFA_Algorithms.bellman_ford(n=n, edges=edges, src=src_id, dst=dst_id)
             else:
                 print(f"Unknown algorithm: {algo_name}")
                 return
