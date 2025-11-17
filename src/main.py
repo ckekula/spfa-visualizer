@@ -2,7 +2,7 @@ import pygame
 from visualizer import Visualizer
 from algorithms import SPFA_Algorithms
 
-# ---------- CONFIG ----------
+# CONFIG
 ROWS = 10
 COLS = 10
 CELL_SIZE = 40
@@ -28,13 +28,7 @@ start = (0, 0)  # (row, col)
 end   = (9, 9)
 
 
-
 def main():
-    def manhattan_heuristic(node_id):
-        r, c = viz.coord_from_id(node_id)
-        er, ec = end
-        return abs(r - er) + abs(c - ec)
-
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("SPFA Visualizer")
@@ -82,14 +76,20 @@ def main():
 ]
 
 
-    def compute_shortest_path(algo_name):
+    def compute_shortest_path(algo_name):        
         nonlocal shortest_path
         print(f"Computing path using: {algo_name}")
+
+        def manhattan_heuristic(node_id):
+            r, c = viz.coord_from_id(node_id)
+            er, ec = end
+            return abs(r - er) + abs(c - ec)
+        
         try:
             if algo_name == "Dijkstra":
                 path_ids = SPFA_Algorithms.dijkstras(n=n, edges=edges, src=src_id, dst=dst_id)
             elif algo_name == "A*":
-                path_ids = SPFA_Algorithms.a_star( n=n, edges=edges, src=src_id, dst=dst_id,heuristic=manhattan_heuristic)
+                path_ids = SPFA_Algorithms.a_star( n=n, edges=edges, src=src_id, dst=dst_id, heuristic=manhattan_heuristic)
             
             elif algo_name == "Bellman-Ford":
                 path_ids = SPFA_Algorithms.bellman_ford(n=n, edges=edges, src=src_id, dst=dst_id)
@@ -99,10 +99,11 @@ def main():
 
             shortest_path = [viz.coord_from_id(pid) for pid in path_ids]
             print(f"Found path length: {len(shortest_path)}")
+        
         except Exception as e:
             print("Error computing path:", e)
 
-    # -------- Main Loop --------
+    # Main Loop
     running = True
 
     while running:
