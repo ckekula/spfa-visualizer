@@ -112,3 +112,68 @@ class SPFA_Algorithms:
             cur = parent[cur]
         path.reverse()
         return path
+
+class PathFinder:
+    """Handles pathfinding algorithms"""
+    def __init__(self, visualizer, maze_state):
+        self.viz = visualizer
+        self.maze_state = maze_state
+    
+    def compute_path(self, algo_name):
+        """Compute shortest path using specified algorithm"""
+        if self.maze_state.start is None:
+            raise ValueError("Start cell not set!")
+        if self.maze_state.end is None:
+            raise ValueError("End cell not set!")
+        
+        # Update visualizer references
+        self.viz.start = self.maze_state.start
+        self.viz.goal = self.maze_state.end
+        self.viz.maze = self.maze_state.maze
+        
+        # Create graph from current maze
+        graph = self.viz.maze_to_graph()
+        graph.start = self.maze_state.start
+        graph.goal = self.maze_state.end
+        
+        # Convert graph to edges
+        edges = []
+        for (r, c) in graph.nodes:
+            u = self.viz.id_from_coord(r, c)
+            for (nr, nc) in graph.neighbors((r, c)):
+                v = self.viz.id_from_coord(nr, nc)
+                edges.append((u, v, 1))
+        
+        src_id = self.viz.id_from_coord(*self.maze_state.start)
+        dst_id = self.viz.id_from_coord(*self.maze_state.end)
+        n = self.maze_state.rows * self.maze_state.cols
+        
+        # Run selected algorithm
+        path_ids = self._run_algorithm(algo_name, n, edges, src_id, dst_id)
+        
+        if path_ids:
+            self.maze_state.shortest_path = [self.viz.coord_from_id(pid) for pid in path_ids]
+            print(f"Found path length: {len(self.maze_state.shortest_path)}")
+        else:
+            self.maze_state.shortest_path = []
+            raise ValueError("No path found!")
+    
+    def _run_algorithm(self, algo_name, n, edges, src_id, dst_id):
+        """Execute the specified pathfinding algorithm"""
+        if algo_name == "Dijkstra":
+            return SPFA_Algorithms.dijkstras(n=n, edges=edges, src=src_id, dst=dst_id)
+        elif algo_name == "A*":
+            return SPFA_Algorithms.a_star(
+                n=n, edges=edges, src=src_id, dst=dst_id,
+                heuristic=self._manhattan_heuristic
+            )
+        elif algo_name == "Bellman-Ford":
+            return SPFA_Algorithms.bellman_ford(n=n, edges=edges, src=src_id, dst=dst_id)
+        else:
+            raise ValueError(f"Unknown algorithm: {algo_name}")
+    
+    def _manhattan_heuristic(self, node_id):
+        """Calculate Manhattan distance heuristic"""
+        r, c = self.viz.coord_from_id(node_id)
+        er, ec = self.maze_state.end
+        return abs(r - er) + abs(c - ec)

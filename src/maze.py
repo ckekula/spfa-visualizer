@@ -1,7 +1,7 @@
 from graph import Graph
 import pygame
 
-class Visualizer:
+class MazeVisualizer:
     def __init__(self, rows=10, cols=10, cell_size=40, grid_origin=(50,50),
                  maze=None, start=(0,0), end=None):
         self.rows = rows
@@ -84,3 +84,76 @@ class Visualizer:
                             g.add_edge(current, neighbor)
 
         return g
+
+
+class MazeState:
+    """Manages the maze grid and start/end positions"""
+    def __init__(self, rows, cols):
+        self.rows = rows
+        self.cols = cols
+        self.maze = [[0 for _ in range(cols)] for _ in range(rows)]
+        self.start = None
+        self.end = None
+        self.shortest_path = []
+    
+    def toggle_wall(self, row, col):
+        """Toggle wall at given position"""
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.maze[row][col] = 1 - self.maze[row][col]
+            self.shortest_path = []
+    
+    def set_start(self, row, col):
+        """Set start position and ensure it's not a wall"""
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.start = (row, col)
+            self.maze[row][col] = 0
+            self.shortest_path = []
+    
+    def set_end(self, row, col):
+        """Set end position and ensure it's not a wall"""
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            self.end = (row, col)
+            self.maze[row][col] = 0
+            self.shortest_path = []
+    
+    def clear(self):
+        """Reset maze to empty state"""
+        self.maze = [[0 for _ in range(self.cols)] for _ in range(self.rows)]
+        self.start = None
+        self.end = None
+        self.shortest_path = []
+
+
+class UIState:
+    """Manages UI state and button definitions"""
+    def __init__(self):
+        self.selected_algo = "Dijkstra"
+        self.edit_mode = "wall"
+        self.error_message = ""
+        self.error_timer = 0
+        
+        # Button definitions
+        self.find_button = pygame.Rect(600, 50, 150, 40)
+        self.clear_button = pygame.Rect(600, 100, 150, 40)
+        
+        self.algo_buttons = [
+            (pygame.Rect(600, 160, 150, 30), "Dijkstra"),
+            (pygame.Rect(600, 200, 150, 30), "A*"),
+            (pygame.Rect(600, 240, 150, 30), "Bellman-Ford"),
+        ]
+        
+        self.mode_buttons = [
+            (pygame.Rect(600, 300, 150, 30), "wall", "Toggle Wall"),
+            (pygame.Rect(600, 340, 150, 30), "start", "Set Start"),
+            (pygame.Rect(600, 380, 150, 30), "end", "Set End"),
+        ]
+    
+    def show_error(self, message):
+        """Display error message for 3 seconds"""
+        self.error_message = message
+        self.error_timer = 180  # 3 seconds at 60 FPS
+    
+    def update_error_timer(self):
+        """Decrease error timer"""
+        if self.error_timer > 0:
+            self.error_timer -= 1
