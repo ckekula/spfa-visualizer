@@ -6,7 +6,8 @@ from algorithms import PathFinder
 # CONFIG
 ROWS = 10
 COLS = 10
-CELL_SIZE = 50  # Slightly larger cells
+# Increase cell size for a larger visible grid and make window caps larger
+CELL_SIZE = 50  # Small default cell size
 
 
 class SPFAVisualizer:
@@ -16,6 +17,7 @@ class SPFAVisualizer:
         
         # Get display info and set window size
         display_info = pygame.display.Info()
+        # Use smaller caps for a smaller display by default
         self.screen_width = min(1400, display_info.current_w - 100)
         self.screen_height = min(900, display_info.current_h - 100)
         
@@ -23,6 +25,7 @@ class SPFAVisualizer:
         pygame.display.set_caption("SPFA Visualizer - Interactive")
         self.clock = pygame.time.Clock()
         
+        # Original font sizes
         self.font = pygame.font.SysFont(None, 24)
         self.title_font = pygame.font.SysFont(None, 32)
         self.error_font = pygame.font.SysFont(None, 20)
@@ -30,10 +33,16 @@ class SPFAVisualizer:
         # Calculate grid position (centered)
         self.grid_width = COLS * CELL_SIZE
         self.grid_height = ROWS * CELL_SIZE
-        self.grid_origin = (
-            (self.screen_width - self.grid_width) // 2,
-            (self.screen_height - self.grid_height) // 2
-        )
+        # Place grid centered horizontally, but slightly higher vertically so
+        # there is less empty gap below the title.
+        center_x = (self.screen_width - self.grid_width) // 2
+        center_y = (self.screen_height - self.grid_height) // 2
+
+        # Title is drawn at y=30; keep a small margin between title and grid.
+        # title_bottom = 30 + 10  # title center 30 plus margin
+        # grid_origin_y = max(title_bottom + 10, center_y - 10)
+
+        self.grid_origin = (center_x, 70)
         
         # Calculate panel positions
         self.left_panel_x = 40
@@ -109,6 +118,17 @@ class SPFAVisualizer:
         if self.ui_state.clear_button.collidepoint(mx, my):
             self.maze_state.clear()
             return True
+
+        # Preset buttons
+        for rect, preset_id, _ in self.ui_state.preset_buttons:
+            if rect.collidepoint(mx, my):
+                if not self.pathfinder.is_computing:
+                    try:
+                        self.maze_state.set_preset(preset_id)
+                        self.ui_state.show_error(f"Loaded preset {preset_id}")
+                    except Exception as e:
+                        self.ui_state.show_error(f"Preset load failed: {e}")
+                return True
         
         # Algorithm selection buttons
         for rect, name in self.ui_state.algo_buttons:
@@ -168,6 +188,105 @@ class SPFAVisualizer:
         self.viz.end = self.maze_state.end
         self.viz.maze = self.maze_state.maze
         self.viz.draw_grid(self.screen, path=self.maze_state.shortest_path, intermediate_steps=self.maze_state.intermediate_steps)
+
+        # --- Comparative bars for all algorithms (below the grid) ---
+        # Keep only the comparative bars for all algorithms; the single selected
+        # algorithm timing strip above the bars has been removed per request.
+        grid_mid_x = self.grid_origin[0] + self.grid_width // 2
+        time_y = self.grid_origin[1] + self.grid_height + 16
+        padding_h = 22
+        padding_v = 10
+
+        # --- Comparative bars for all algorithms (below the single-line info) ---
+        # Gather measurement data
+        alg_entries = []
+        for _, name in self.ui_state.algo_buttons:
+            rec = self.maze_state.timings.get(name)
+            alg_entries.append((name, rec))
+
+        if alg_entries:
+            # Determine available timings, ignore None values to compute min/max
+            measured = [e[1]["time"] for e in alg_entries if e[1] is not None]
+            measured_ms = [t * 1000 for t in measured]
+
+            # Sort algorithms: measured by time ascending, then unmeasured
+            def _sort_key(entry):
+                rec = entry[1]
+                return rec["time"] if rec else float('inf')
+
+            alg_entries.sort(key=_sort_key)
+
+            # Setup layout under the center bar
+            bar_top = time_y + padding_v + 22
+            bar_height = 18
+            full_bar_width = min(self.grid_width - 40, 600)  # clamp width
+            bar_left = grid_mid_x - full_bar_width // 2
+
+            # Compute scale: bigger bars should be slower times. We'll scale relative to max.
+            if measured_ms:
+                max_ms = max(measured_ms)
+                min_ms = min(measured_ms)
+                # Avoid division by zero
+                range_ms = max_ms - min_ms if max_ms - min_ms > 1e-9 else max_ms
+            else:
+                max_ms = min_ms = range_ms = 0
+
+            for i, (name, rec) in enumerate(alg_entries):
+                y = bar_top + i * (bar_height + 8)
+
+                is_sel = name == self.ui_state.selected_algo
+                if is_sel:
+                    # Draw a subtle highlight behind selected algorithm's track
+                    sel_rect = pygame.Rect(bar_left - 6, y - 6, full_bar_width + 12, bar_height + 12)
+                    pygame.draw.rect(self.screen, (30, 50, 42), sel_rect, border_radius=8)
+
+                # Draw label
+                lbl_color = (220, 220, 240) if rec else (140, 140, 150)
+                name_text = self.error_font.render(name, True, lbl_color)
+                self.screen.blit(name_text, (bar_left - 120, y + 1))
+
+                # Draw background track
+                track_rect = pygame.Rect(bar_left, y, full_bar_width, bar_height)
+                pygame.draw.rect(self.screen, (40, 40, 46), track_rect, border_radius=6)
+
+                if rec is None:
+                    # Unmeasured state: render small dash and a label
+                    dash_rect = pygame.Rect(bar_left + 4, y + 2, 10, bar_height - 4)
+                    pygame.draw.rect(self.screen, (80, 80, 90), dash_rect, border_radius=4)
+                    na_text = self.error_font.render("N/A", True, (120, 130, 140))
+                    self.screen.blit(na_text, (bar_left + full_bar_width + 8, y))
+                else:
+                    ms = rec.get("time", 0) * 1000
+                    # Normalize: map ms to width relative to max_ms
+                    if max_ms <= 0:
+                        frac = 0
+                    else:
+                        # Map to [0.1, 1.0] to always show minimal width for fastest
+                        frac = max(0.05, ms / max_ms)
+
+                    fill_w = int(full_bar_width * frac)
+                    fill_rect = pygame.Rect(bar_left, y, fill_w, bar_height)
+
+                    # Color scale: fast (green) -> slow (orange) -> slowest (red)
+                    # Use frac as speed indicator (higher frac = slower)
+                    if frac < 0.4:
+                        col = (100, 200, 120)
+                    elif frac < 0.75:
+                        col = (255, 170, 80)
+                    else:
+                        col = (240, 100, 100)
+
+                    pygame.draw.rect(self.screen, col, fill_rect, border_radius=6)
+
+                    # Draw right-time label
+                    time_label = f"{ms:.2f} ms" if ms < 1000 else f"{ms/1000:.2f} s"
+                    nodes_label = f" {rec.get('visited', 0)} nodes"
+                    label_text = self.error_font.render(time_label + nodes_label, True, (180, 210, 200))
+                    label_rect = label_text.get_rect()
+                    if is_sel:
+                        # Selected algorithm label draws slightly brighter
+                        label_text = self.error_font.render(time_label + nodes_label, True, (220, 240, 220))
+                    self.screen.blit(label_text, (bar_left + full_bar_width + 8, y))
         
         # LEFT PANEL - Edit Controls
         self.draw_left_panel()
@@ -223,6 +342,18 @@ class SPFAVisualizer:
             text = self.font.render(label, True, text_color)
             text_rect = text.get_rect(center=rect.center)
             self.screen.blit(text, text_rect)
+
+        # Find Path button
+        is_computing = self.pathfinder.is_computing
+        button_color = (50, 100, 140) if is_computing else (70, 140, 200)
+        border_color = (70, 120, 160) if is_computing else (100, 170, 230)
+        button_text = "Computing..." if is_computing else "Find Path"
+
+        pygame.draw.rect(self.screen, button_color, self.ui_state.find_button, border_radius=8)
+        pygame.draw.rect(self.screen, border_color, self.ui_state.find_button, 3, border_radius=8)
+        find_text = self.font.render(button_text, True, (255, 255, 255))
+        find_rect = find_text.get_rect(center=self.ui_state.find_button.center)
+        self.screen.blit(find_text, find_rect)
         
         # Clear button
         is_disabled = self.pathfinder.is_computing
@@ -236,9 +367,21 @@ class SPFAVisualizer:
         clear_text = self.font.render("Clear Maze", True, text_color)
         clear_rect = clear_text.get_rect(center=self.ui_state.clear_button.center)
         self.screen.blit(clear_text, clear_rect)
+
+        # Preset buttons (below Clear)
+        for rect, pid, label in self.ui_state.preset_buttons:
+            is_disabled = self.pathfinder.is_computing
+            color = (70, 70, 85) if is_disabled else (120, 100, 200)
+            border_color = (100, 100, 120) if is_disabled else (170, 150, 240)
+            pygame.draw.rect(self.screen, color, rect, border_radius=8)
+            pygame.draw.rect(self.screen, border_color, rect, 2, border_radius=8)
+            ptext = self.font.render(label, True, (255, 255, 255) if not is_disabled else (150, 150, 150))
+            p_rect = ptext.get_rect(center=rect.center)
+            self.screen.blit(ptext, p_rect)
         
         # Speed control section
-        speed_y = self.ui_state.clear_button.bottom + 20
+        # Speed control sits below the preset buttons (computed inside UIState)
+        speed_y = self.ui_state.preset_buttons[-1][0].bottom + 20
         speed_title = self.font.render("Animation Speed", True, (220, 220, 240))
         self.screen.blit(speed_title, (panel_x + 35, speed_y))
         
@@ -288,53 +431,53 @@ class SPFAVisualizer:
         y_offset = panel_y + 20
         title = self.font.render("Algorithm", True, (220, 220, 240))
         self.screen.blit(title, (panel_x + 70, y_offset))
-        
+
         y_offset += 50
-        
+
         # Algorithm buttons
         for rect, name in self.ui_state.algo_buttons:
             is_selected = name == self.ui_state.selected_algo
             is_disabled = self.pathfinder.is_computing
-            
+
             if is_disabled:
                 color = (50, 60, 50)
                 border_color = (70, 80, 70)
             else:
                 color = (100, 180, 120) if is_selected else (70, 70, 85)
                 border_color = (130, 220, 150) if is_selected else (100, 100, 120)
-            
+
             pygame.draw.rect(self.screen, color, rect, border_radius=8)
             pygame.draw.rect(self.screen, border_color, rect, 2, border_radius=8)
-            
+
             text_color = (150, 150, 150) if is_disabled else (255, 255, 255)
             text = self.font.render(name, True, text_color)
             text_rect = text.get_rect(center=rect.center)
             self.screen.blit(text, text_rect)
-        
+    
         # Find Path button
         is_computing = self.pathfinder.is_computing
         button_color = (50, 100, 140) if is_computing else (70, 140, 200)
         border_color = (70, 120, 160) if is_computing else (100, 170, 230)
         button_text = "Computing..." if is_computing else "Find Path"
-        
+
         pygame.draw.rect(self.screen, button_color, self.ui_state.find_button, border_radius=8)
         pygame.draw.rect(self.screen, border_color, self.ui_state.find_button, 3, border_radius=8)
         find_text = self.font.render(button_text, True, (255, 255, 255))
         find_rect = find_text.get_rect(center=self.ui_state.find_button.center)
         self.screen.blit(find_text, find_rect)
-        
+
         # Selected algorithm info
         info_y = self.ui_state.find_button.bottom + 40
         info_lines = [
             "Selected Algorithm:",
             f"  {self.ui_state.selected_algo}",
         ]
-        
+
         for i, line in enumerate(info_lines):
             color = (200, 200, 220) if not line.startswith("  ") else (160, 220, 160)
             text = self.error_font.render(line, True, color)
             self.screen.blit(text, (panel_x + 20, info_y + i * 22))
-    
+
     def run(self):
         """Main application loop"""
         while self.running:

@@ -68,7 +68,7 @@ class MazeVisualizer:
                 pygame.draw.rect(surface, color, rect)
                 pygame.draw.rect(surface, self.GRID_LINE, rect, 1)
                 
-                # Add labels for start and end
+                # Add labels for start and end (default font)
                 font = pygame.font.SysFont(None, 20)
                 if (r, c) == self.start:
                     text = font.render("S", True, (255, 255, 255))
@@ -118,6 +118,8 @@ class MazeState:
         self.end = None
         self.shortest_path = []
         self.intermediate_steps = []  # Nodes explored during pathfinding
+        # Timing results for different algorithms (seconds) as dicts: {name: {"time": float, "visited": int}}
+        self.timings = {}
     
     def toggle_wall(self, row, col):
         """Toggle wall at given position"""
@@ -125,6 +127,8 @@ class MazeState:
             self.maze[row][col] = 1 - self.maze[row][col]
             self.shortest_path = []
             self.intermediate_steps = []
+            # When walls change, previous timings are no longer valid
+            self.timings = {}
     
     def set_start(self, row, col):
         """Set start position and ensure it's not a wall"""
@@ -133,6 +137,8 @@ class MazeState:
             self.maze[row][col] = 0
             self.shortest_path = []
             self.intermediate_steps = []
+            # Changing start changes path validity, clear timings
+            self.timings = {}
     
     def set_end(self, row, col):
         """Set end position and ensure it's not a wall"""
@@ -141,6 +147,8 @@ class MazeState:
             self.maze[row][col] = 0
             self.shortest_path = []
             self.intermediate_steps = []
+            # Changing end changes path validity, clear timings
+            self.timings = {}
     
     def clear(self):
         """Reset maze to empty state"""
@@ -149,11 +157,90 @@ class MazeState:
         self.end = None
         self.shortest_path = []
         self.intermediate_steps = []
+        self.timings = {}
+
+    def set_preset(self, preset_id):
+        """Set the maze to one of three hard-coded presets.
+
+        presets:
+          1 - L-shaped corridor from top-left down then across bottom to the right
+          2 - Diagonal corridor from top-left to bottom-right (thin but passable)
+          3 - Spiral corridor starting at outer edges moving inward
+        """
+        # reset to walls
+        self.maze = [[1 for _ in range(self.cols)] for _ in range(self.rows)]
+
+        # Only provide hard-coded presets for a 10x10 grid. If grid size
+        # differs, raise an informative error so callers can handle it.
+        if self.rows != 10 or self.cols != 10:
+            raise ValueError("Presets are only supported for a 10x10 grid in this version")
+
+        # Hard-coded presets for 10x10
+        PRESET_1 = [
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+
+        PRESET_2 = [
+            [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+            [1, 1, 0, 0, 0, 1, 1, 1, 1, 1],
+            [1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
+            [1, 1, 1, 1, 0, 0, 0, 1, 1, 1],
+            [1, 1, 1, 1, 1, 0, 0, 0, 1, 1],
+            [1, 1, 1, 1, 1, 1, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+        ]
+
+        PRESET_3 = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
+            [0, 1, 0, 1, 0, 0, 1, 0, 1, 0],
+            [0, 1, 0, 1, 0, 0, 1, 0, 1, 0],
+            [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+
+        if preset_id == 1:
+            self.maze = PRESET_1
+            self.start = (0, 0)
+            self.end = (self.rows - 1, self.cols - 1)
+        elif preset_id == 2:
+            self.maze = PRESET_2
+            self.start = (0, 0)
+            self.end = (self.rows - 1, self.cols - 1)
+        elif preset_id == 3:
+            self.maze = PRESET_3
+            self.start = (0, 0)
+            self.end = ((self.rows - 1) // 2, (self.cols - 1) // 2)
+        
+
+        else:
+            raise ValueError("Unknown preset id")
+
+        # Clear previous results so visualizer can compute anew
+        self.shortest_path = []
+        self.intermediate_steps = []
+        self.timings = {}
 
 
 class UIState:
     """Manages UI state and button definitions with responsive positioning"""
-    def __init__(self, left_panel_x=40, right_panel_x=1120, screen_height=900):
+    def __init__(self, left_panel_x=40, right_panel_x=1120, screen_height=1000):
         self.selected_algo = "Dijkstra"
         self.edit_mode = "wall"
         self.error_message = ""
@@ -175,9 +262,19 @@ class UIState:
         ]
         
         self.clear_button = pygame.Rect(left_x, mode_start_y + 200, button_width, button_height)
+
+        # Preset mazes (place these after the Clear button to avoid overlaps)
+        preset_start_y = self.clear_button.bottom + 16
+        preset_spacing = button_height + 18
+        self.preset_buttons = [
+            (pygame.Rect(left_x, preset_start_y + 0 * preset_spacing, button_width, button_height), 1, "Preset 1"),
+            (pygame.Rect(left_x, preset_start_y + 1 * preset_spacing, button_width, button_height), 2, "Preset 2"),
+            (pygame.Rect(left_x, preset_start_y + 2 * preset_spacing, button_width, button_height), 3, "Preset 3"),
+        ]
         
         # Speed control buttons
-        speed_start_y = mode_start_y + 290
+        # Place animation speed controls below the preset buttons to avoid overlap
+        speed_start_y = self.preset_buttons[-1][0].bottom + 20
         speed_button_width = 60
         speed_button_height = 35
         speed_spacing = 5
