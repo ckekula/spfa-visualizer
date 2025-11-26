@@ -161,92 +161,96 @@ class SPFA_Algorithms:
         return path, visited
     
     @staticmethod
-    def bfs(n, edges, src, dst,visualizer_callback=None, delay=0.05):
+    def bfs(n, edges, src, dst, visualizer_callback=None, delay=0.05):
+        # Build adjacency
+        adj = {i: [] for i in range(n)}
+        for u, v, w in edges:
+            adj[u].append((v, w))
+
         from collections import deque
-        # Build adjacency list
-        adj = {i: [] for i in range(n)}
-        for u, v, *_ in edges:
-            adj[u].append(v)
-        
-        visited = {src: None}
-        queue = deque([src])
-        checked = []
-
-        while queue:
-            current = queue.popleft()
-            checked.append(current)
-            # Visualize visited node
-            if visualizer_callback:
-                visualizer_callback(checked.copy(), [])
-                time.sleep(delay)
-            # Destination found → reconstruct shortest path
-            if current == dst:
-                path = []
-                while current is not None:
-                    path.append(current)
-                    current = visited[current]
-                path.reverse()
-                #Final visualization (show path)
-                if visualizer_callback:
-                    visualizer_callback(checked, path)
-
-                return path, checked
-            # Explore neighbors
-            for i in adj[current]:
-                if i not in  visited:
-                    visited[i] = current
-                    queue.append(i) 
-        # If no path found
-        return None, checked
-    
-     
-    @staticmethod
-    def dfs(n, edges, src, dst, visualizer_callback=None, delay=0.05):
-        # Build adjacency list
-        adj = {i: [] for i in range(n)}
-        for u, v, *_ in edges:
-            adj[u].append(v)
- 
-        stack = [src]
-        parent = {src: None}
+        q = deque([src])
+        parent = {i: None for i in range(n)}
         visited = set([src])
-        checked = []  # order in which nodes are popped/processed (for visualization)
 
-        while stack:
-            node = stack.pop()
-            checked.append(node)
+        while q:
+            node = q.popleft()
+            if node == dst:
+                break
 
-            
+            # visualize
             if visualizer_callback:
-                visualizer_callback(checked.copy(), [])
+                visualizer_callback(list(visited), [])
                 time.sleep(delay)
 
-            
-            if node == dst:
-                path = []
-                cur = node
-                while cur is not None:
-                    path.append(cur)
-                    cur = parent[cur]
-                path.reverse()
-
-                 
-                if visualizer_callback:
-                    visualizer_callback(checked, path)
-
-                return path, visited
-
-            # Explore neighbors — push unvisited neighbors onto stack
-             
-            for neigh in reversed(adj.get(node, [])):
+            for neigh, _ in adj[node]:
                 if neigh not in visited:
                     visited.add(neigh)
                     parent[neigh] = node
+                    q.append(neigh)
+
+        if dst not in visited:
+            return [], visited
+
+        # reconstruct
+        path = []
+        cur = dst
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+
+        if visualizer_callback:
+            visualizer_callback(list(visited), path)
+
+        return path, visited
+
+    @staticmethod
+    def dfs(n, edges, src, dst, visualizer_callback=None, delay=0.05):
+        # Build adjacency
+        adj = {i: [] for i in range(n)}
+        for u, v, w in edges:
+            adj[u].append((v, w))
+
+        parent = {i: None for i in range(n)}
+        visited = set()
+        stack = [src]
+
+        while stack:
+            node = stack.pop()
+            if node in visited:
+                continue
+
+            visited.add(node)
+
+            if visualizer_callback:
+                visualizer_callback(list(visited), [])
+                time.sleep(delay)
+
+            if node == dst:
+                break
+
+            # Add neighbors in reversed order for consistent path
+            for neigh, _ in adj[node]:
+                if neigh not in visited:
+                    parent[neigh] = node
                     stack.append(neigh)
 
-        # Destination not reachable
-        return [], visited
-  
+        if dst not in visited:
+            return [], visited
+
+        # reconstruct
+        path = []
+        cur = dst
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+
+        if visualizer_callback:
+            visualizer_callback(list(visited), path)
+
+        return path, visited
+
 
 class PathFinder:
     """Handles pathfinding algorithms"""
@@ -300,6 +304,46 @@ class PathFinder:
         dst_id = self.viz.id_from_coord(*self.maze_state.end)
         n = self.maze_state.rows * self.maze_state.cols
         
+        # Run the selected algorithm once without visualization to measure pure computation time
+        try:
+            t0 = time.perf_counter()
+            if algo_name == "Dijkstra":
+                path_ids_no_vis, visited_ids_no_vis = SPFA_Algorithms.dijkstras(
+                    n=n, edges=edges, src=src_id, dst=dst_id,
+                    visualizer_callback=None, delay=0
+                )
+            elif algo_name == "A*":
+                path_ids_no_vis, visited_ids_no_vis = SPFA_Algorithms.a_star(
+                    n=n, edges=edges, src=src_id, dst=dst_id,
+                    heuristic=self._manhattan_heuristic, visualizer_callback=None, delay=0
+                )
+            elif algo_name == "Bellman-Ford":
+                path_ids_no_vis, visited_ids_no_vis = SPFA_Algorithms.bellman_ford(
+                    n=n, edges=edges, src=src_id, dst=dst_id,
+                    visualizer_callback=None, delay=0
+                )
+            elif algo_name == "BFS":
+                path_ids_no_vis, visited_ids_no_vis = SPFA_Algorithms.bfs(
+                    n=n, edges=edges, src=src_id, dst=dst_id,
+                    visualizer_callback=None, delay=0
+                )
+            elif algo_name == "DFS":
+                path_ids_no_vis, visited_ids_no_vis = SPFA_Algorithms.dfs(
+                    n=n, edges=edges, src=src_id, dst=dst_id,
+                    visualizer_callback=None, delay=0
+                )
+            else:
+                # Unknown/unsupported algorithm (shouldn't happen if all algos implemented)
+                path_ids_no_vis, visited_ids_no_vis = [], set()
+            t1 = time.perf_counter()
+            elapsed = t1 - t0
+            # Save timing into maze state (seconds) with visited count
+            visited_count = len(visited_ids_no_vis) if visited_ids_no_vis is not None else 0
+            self.maze_state.timings[algo_name] = {"time": elapsed, "visited": visited_count}
+        except Exception:
+            # If measurement step fails for any reason, ignore timing
+            pass
+
         # Run selected algorithm with visualization callback
         result = self._run_algorithm(algo_name, n, edges, src_id, dst_id, delay)
         path_ids, visited_ids = result
@@ -336,19 +380,16 @@ class PathFinder:
             )
         elif algo_name == "BFS":
             return SPFA_Algorithms.bfs(
-            n=n, edges=edges, src=src_id, dst=dst_id,
-            visualizer_callback=self.visualize_step,
-            delay=delay
-        )
-        
+                n=n, edges=edges, src=src_id, dst=dst_id,
+                visualizer_callback=self.visualize_step,
+                delay=delay
+            )
         elif algo_name == "DFS":
             return SPFA_Algorithms.dfs(
-            n=n, edges=edges, src=src_id, dst=dst_id,
-            visualizer_callback=self.visualize_step,
-            delay=delay
-        )
-
-            
+                n=n, edges=edges, src=src_id, dst=dst_id,
+                visualizer_callback=self.visualize_step,
+                delay=delay
+            )
         else:
             raise ValueError(f"Unknown algorithm: {algo_name}")
     
