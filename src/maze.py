@@ -250,6 +250,8 @@ class UIState:
         left_x = left_panel_x + 20
         button_width = 200
         button_height = 45
+        preset_button_height = 30
+        
         
         mode_start_y = 150
         self.mode_buttons = [
@@ -261,23 +263,25 @@ class UIState:
              "end", "Set End"),
         ]
         
-        self.clear_button = pygame.Rect(left_x, mode_start_y + 200, button_width, button_height)
+        self.clear_button = pygame.Rect(left_x, mode_start_y + 180, button_width, button_height)
 
         # Preset mazes (place these after the Clear button to avoid overlaps)
         preset_start_y = self.clear_button.bottom + 16
-        preset_spacing = button_height + 18
+        preset_spacing = 20
         self.preset_buttons = [
-            (pygame.Rect(left_x, preset_start_y + 0 * preset_spacing, button_width, button_height), 1, "Preset 1"),
-            (pygame.Rect(left_x, preset_start_y + 1 * preset_spacing, button_width, button_height), 2, "Preset 2"),
-            (pygame.Rect(left_x, preset_start_y + 2 * preset_spacing, button_width, button_height), 3, "Preset 3"),
+            (pygame.Rect(left_x , preset_start_y, button_width, preset_button_height), 1, "Preset 1"),
+            (pygame.Rect(left_x, preset_start_y + 50, button_width, preset_button_height), 2, "Preset 2"),
+            (pygame.Rect(left_x, preset_start_y + 100 , button_width, preset_button_height), 3, "Preset 3"),
         ]
         
         # Speed control buttons
         # Place animation speed controls below the preset buttons to avoid overlap
-        speed_start_y = self.preset_buttons[-1][0].bottom + 20
+        speed_start_y = self.preset_buttons[-1][0].bottom + 50
         speed_button_width = 60
         speed_button_height = 35
         speed_spacing = 5
+
+        
         
         self.speed_buttons = [
             (pygame.Rect(left_x, speed_start_y, speed_button_width, speed_button_height), 
@@ -290,6 +294,7 @@ class UIState:
         
         # Right panel buttons (Algorithm Selection)
         right_x = right_panel_x + 20
+        
         
         algo_start_y = 150
         self.algo_buttons = [

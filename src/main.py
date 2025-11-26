@@ -319,7 +319,7 @@ class SPFAVisualizer:
         # Section title
         y_offset = panel_y + 20
         title = self.font.render("Edit Controls", True, (220, 220, 240))
-        self.screen.blit(title, (panel_x + 50, y_offset))
+        self.screen.blit(title, (panel_x + 70, y_offset))
         
         y_offset += 50
         
@@ -383,7 +383,7 @@ class SPFAVisualizer:
         # Speed control sits below the preset buttons (computed inside UIState)
         speed_y = self.ui_state.preset_buttons[-1][0].bottom + 20
         speed_title = self.font.render("Animation Speed", True, (220, 220, 240))
-        self.screen.blit(speed_title, (panel_x + 35, speed_y))
+        self.screen.blit(speed_title, (panel_x + 50, speed_y))
         
         for rect, speed_val, label in self.ui_state.speed_buttons:
             is_selected = abs(self.animation_speed - speed_val) < 0.001
@@ -398,17 +398,12 @@ class SPFAVisualizer:
             self.screen.blit(text, text_rect)
         
         # Status info
-        status_y = self.ui_state.speed_buttons[-1][0].bottom + 30
+        status_y = self.ui_state.speed_buttons[-1][0].bottom + 10
         
         status_lines = [
-            f"Current Mode:",
-            f"  {self.ui_state.edit_mode.title()}",
-            "",
-            f"Start Position:",
-            f"  {self.maze_state.start if self.maze_state.start else 'Not set'}",
-            "",
-            f"End Position:",
-            f"  {self.maze_state.end if self.maze_state.end else 'Not set'}",
+            f"Current Mode - {self.ui_state.edit_mode.title()}",
+            f"Start Position - {self.maze_state.start if self.maze_state.start else 'Not set'}",
+            f"End Position - {self.maze_state.end if self.maze_state.end else 'Not set'}",
         ]
         
         for i, line in enumerate(status_lines):
@@ -430,7 +425,7 @@ class SPFAVisualizer:
         # Section title
         y_offset = panel_y + 20
         title = self.font.render("Algorithm", True, (220, 220, 240))
-        self.screen.blit(title, (panel_x + 70, y_offset))
+        self.screen.blit(title, (panel_x + 75, y_offset))
 
         y_offset += 50
 
