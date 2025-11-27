@@ -152,48 +152,63 @@ class SPFAVisualizer:
         return False
     
     def handle_events(self):
-        """Process pygame events with smooth click-and-drag wall editing"""
-        mouse_held = pygame.mouse.get_pressed()  # (left, middle, right)
+        mouse_held = pygame.mouse.get_pressed()
         mx, my = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
-            elif event.type == pygame.MOUSEBUTTONDOWN or event.type == pygame.MOUSEMOTION:
-                # Only edit grid if left or right button is held
-                if mouse_held[0] or mouse_held[2]:
-                    # Check if inside grid
-                    gx = mx - self.grid_origin[0]
-                    gy = my - self.grid_origin[1]
-                    if 0 <= gx < self.grid_width and 0 <= gy < self.grid_height:
-                        row = gy // CELL_SIZE
-                        col = gx // CELL_SIZE
-                        if 0 <= row < ROWS and 0 <= col < COLS:
-                            if not self.pathfinder.is_computing:
-                                # Wall editing mode
-                                if self.ui_state.edit_mode == "wall":
-                                    # Left click draws wall
-                                    if mouse_held[0] and self.maze_state.maze[row][col] != 1:
-                                        self.maze_state.maze[row][col] = 1
-                                        self.maze_state.shortest_path = []
-                                        self.maze_state.intermediate_steps = []
-                                        self.maze_state.timings = {}
-                                    # Right click erases wall
-                                    elif mouse_held[2] and self.maze_state.maze[row][col] != 0:
-                                        self.maze_state.maze[row][col] = 0
-                                        self.maze_state.shortest_path = []
-                                        self.maze_state.intermediate_steps = []
-                                        self.maze_state.timings = {}
-                                # Start/end placement mode
-                                elif self.ui_state.edit_mode == "start":
-                                    self.maze_state.set_start(row, col)
-                                elif self.ui_state.edit_mode == "end":
-                                    self.maze_state.set_end(row, col)
+            # --- ERASE ON CLICK (no dragging) ---
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                gx = mx - self.grid_origin[0]
+                gy = my - self.grid_origin[1]
 
-                # Check button clicks only on MOUSEBUTTONDOWN (not motion)
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.handle_button_clicks(mx, my)
+                if 0 <= gx < self.grid_width and 0 <= gy < self.grid_height:
+                    row = gy // CELL_SIZE
+                    col = gx // CELL_SIZE
+
+                    if self.ui_state.edit_mode == "wall":
+                        # erase
+                        if self.maze_state.maze[row][col] != 0:
+                            self.maze_state.maze[row][col] = 0
+                            self.maze_state.shortest_path = []
+                            self.maze_state.intermediate_steps = []
+                            self.maze_state.timings = {}
+
+                # button UI clicks
+                self.handle_button_clicks(mx, my)
+
+            # --- DRAW ON DRAG ---
+            if event.type == pygame.MOUSEMOTION and mouse_held[0]:
+                gx = mx - self.grid_origin[0]
+                gy = my - self.grid_origin[1]
+
+                if 0 <= gx < self.grid_width and 0 <= gy < self.grid_height:
+                    row = gy // CELL_SIZE
+                    col = gx // CELL_SIZE
+
+                    if self.ui_state.edit_mode == "wall":
+                        if self.maze_state.maze[row][col] != 1:
+                            self.maze_state.maze[row][col] = 1
+                            self.maze_state.shortest_path = []
+                            self.maze_state.intermediate_steps = []
+                            self.maze_state.timings = {}
+
+            # --- START / END placement still handled normally ---
+            if mouse_held[0] and not self.pathfinder.is_computing:
+                gx = mx - self.grid_origin[0]
+                gy = my - self.grid_origin[1]
+
+                if 0 <= gx < self.grid_width and 0 <= gy < self.grid_height:
+                    row = gy // CELL_SIZE
+                    col = gx // CELL_SIZE
+
+                    if self.ui_state.edit_mode == "start":
+                        self.maze_state.set_start(row, col)
+                    elif self.ui_state.edit_mode == "end":
+                        self.maze_state.set_end(row, col)
+
 
     
     def draw_ui(self):
