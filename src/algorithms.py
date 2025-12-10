@@ -1,7 +1,6 @@
 import heapq
 import time
 
-
 class SPFA_Algorithms:
     @staticmethod
     def dijkstras(n, edges, src, dst, visualizer_callback=None, delay=0.05):
@@ -47,7 +46,7 @@ class SPFA_Algorithms:
         while cur is not None:
             path.append(cur)
             cur = parent[cur]
- 
+
         path.reverse()
         
         # Final visualization with path
@@ -159,46 +158,98 @@ class SPFA_Algorithms:
             visualizer_callback(list(visited), path)
             
         return path, visited
-    
+
     @staticmethod
-    def bfs(n, edges, src, dst,visualizer_callback=None, delay=0.05):
+    def bfs(n, edges, src, dst, visualizer_callback=None, delay=0.05):
+        # Build adjacency
+        adj = {i: [] for i in range(n)}
+        for u, v, w in edges:
+            adj[u].append((v, w))
+
         from collections import deque
+        q = deque([src])
+        parent = {i: None for i in range(n)}
+        visited = set([src])
+
+        while q:
+            node = q.popleft()
+            if node == dst:
+                break
+
+            # visualize
+            if visualizer_callback:
+                visualizer_callback(list(visited), [])
+                time.sleep(delay)
+
+            for neigh, _ in adj[node]:
+                if neigh not in visited:
+                    visited.add(neigh)
+                    parent[neigh] = node
+                    q.append(neigh)
+
+        if dst not in visited:
+            return [], visited
+
+        # reconstruct
+        path = []
+        cur = dst
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+
+        if visualizer_callback:
+            visualizer_callback(list(visited), path)
+
+        return path, visited
+    @staticmethod 
+    def dfs(n, edges, src, dst, visualizer_callback=None, delay=0.05):
         # Build adjacency list
         adj = {i: [] for i in range(n)}
-        for u, v, *_ in edges:
+        for u, v, w in edges:
+            if w == float('inf'):
+                continue  # ignore walls
             adj[u].append(v)
-        
-        visited = {src: None}
-        queue = deque([src])
-        checked = []
 
-        while queue:
-            current = queue.popleft()
-            checked.append(current)
-            # Visualize visited node
+        visited = set()
+        parent = {i: None for i in range(n)}
+
+        def _dfs(node):
+            visited.add(node)
+
             if visualizer_callback:
-                visualizer_callback(checked.copy(), [])
+                visualizer_callback(list(visited), [])
                 time.sleep(delay)
-            # Destination found → reconstruct shortest path
-            if current == dst:
-                path = []
-                while current is not None:
-                    path.append(current)
-                    current = visited[current]
-                path.reverse()
-                #Final visualization (show path)
-                if visualizer_callback:
-                    visualizer_callback(checked, path)
 
-                return path, checked
-            # Explore neighbors
-            for i in adj[current]:
-                if i not in  visited:
-                    visited[i] = current
-                    queue.append(i) 
-        # If no path found
-        return None, checked
-            
+            if node == dst:
+                return True  # found destination
+
+            for neigh in adj[node]:
+                if neigh not in visited:
+                    parent[neigh] = node
+                    if _dfs(neigh):
+                        return True
+
+            return False  # backtrack
+
+        # run dfs
+        found = _dfs(src)
+
+        if not found:
+            return [], visited
+
+        # reconstruct path
+        path = []
+        cur = dst
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+
+        if visualizer_callback:
+            visualizer_callback(list(visited), path)
+
+        return path, visited
 
 class PathFinder:
     """Handles pathfinding algorithms"""
@@ -246,7 +297,6 @@ class PathFinder:
             for (nr, nc) in graph.neighbors((r, c)):
                 v = self.viz.id_from_coord(nr, nc)
                 edges.append((u, v, 1))
-        
         
         src_id = self.viz.id_from_coord(*self.maze_state.start)
         dst_id = self.viz.id_from_coord(*self.maze_state.end)
@@ -328,11 +378,16 @@ class PathFinder:
             )
         elif algo_name == "BFS":
             return SPFA_Algorithms.bfs(
-            n=n, edges=edges, src=src_id, dst=dst_id,
-            visualizer_callback=self.visualize_step,
-            delay=delay
-        )
-            
+                n=n, edges=edges, src=src_id, dst=dst_id,
+                visualizer_callback=self.visualize_step,
+                delay=delay
+            )
+        elif algo_name == "DFS":
+            return SPFA_Algorithms.dfs(
+                n=n, edges=edges, src=src_id, dst=dst_id,
+                visualizer_callback=self.visualize_step,
+                delay=delay
+            )
         else:
             raise ValueError(f"Unknown algorithm: {algo_name}")
     
